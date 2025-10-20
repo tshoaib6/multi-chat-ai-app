@@ -22,7 +22,10 @@ export default async function getDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         userId INTEGER,
         title TEXT,
+        topicId TEXT,
         messages TEXT,
+        isPublic INTEGER DEFAULT 0,
+        participants TEXT DEFAULT '[]',
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(userId) REFERENCES users(id)
       )`);

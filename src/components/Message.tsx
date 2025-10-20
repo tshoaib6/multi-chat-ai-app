@@ -1,14 +1,18 @@
+
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import { personas } from '../data/personas';
 import type { TranscriptEntry } from '../types';
 import { useApp } from '../stores';
+import { useState } from 'react';
 
 export default function Message({ entry, searchTerm }: { entry: TranscriptEntry, searchTerm?: string }) {
 	const p = personas[entry.speakerId];
 	const { toggleReaction } = useApp();
-	const userId = 'user'; // could use from store if needed
+	const userId = 'user';
+	const [playing, setPlaying] = useState(false);
+	const [utter, setUtter] = useState<SpeechSynthesisUtterance | null>(null);
 
 	// explicit Tailwind class mapping per persona color key
 	const colorClasses: Record<string, { avatarBg: string; nameText: string; bubbleBg: string }> = {
@@ -34,12 +38,28 @@ export default function Message({ entry, searchTerm }: { entry: TranscriptEntry,
 	const emojis = ['👍', '😂', '😍'];
 	const reactions = entry.reactions ?? {};
 
-	// TTS play
+	// TTS play/stop
 	function speak() {
 		if ('speechSynthesis' in window) {
-			const utter = new window.SpeechSynthesisUtterance(entry.text);
-			utter.lang = 'en-US';
-			window.speechSynthesis.speak(utter);
+			if (playing && utter) {
+				window.speechSynthesis.cancel();
+				setPlaying(false);
+				setUtter(null);
+				return;
+			}
+			const u = new window.SpeechSynthesisUtterance(entry.text);
+			u.lang = 'en-US';
+			u.onstart = () => setPlaying(true);
+			u.onend = () => { setPlaying(false); setUtter(null); };
+			setUtter(u);
+			window.speechSynthesis.speak(u);
+		}
+	}
+	function stop() {
+		if ('speechSynthesis' in window) {
+			window.speechSynthesis.cancel();
+			setPlaying(false);
+			setUtter(null);
 		}
 	}
 
@@ -53,9 +73,16 @@ export default function Message({ entry, searchTerm }: { entry: TranscriptEntry,
 					<span>{p.role}</span>
 					<span className="mx-1">•</span>
 					<time title={dayjs(entry.timestamp).format('YYYY-MM-DD HH:mm:ss')}>{dayjs(entry.timestamp).fromNow()}</time>
-					<button onClick={speak} className="ml-2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-800" title="Play message">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 8v8a2 2 0 0 0 2 2h3l5 4V4l-5 4H7a2 2 0 0 0-2 2z" fill="currentColor"/></svg>
+					<button onClick={speak} className={`ml-2 p-1 rounded ${playing ? 'bg-blue-200 dark:bg-blue-800' : 'hover:bg-gray-200 dark:hover:bg-gray-800'}`} title={playing ? 'Stop' : 'Play message'}>
+						{playing ? (
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+						) : (
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 8v8a2 2 0 0 0 2 2h3l5 4V4l-5 4H7a2 2 0 0 0-2 2z" fill="currentColor"/></svg>
+						)}
 					</button>
+					{playing && (
+						<span className="ml-2 text-blue-600 dark:text-blue-300 animate-pulse">Playing…</span>
+					)}
 				</div>
 				<div className={`mt-1 text-[15px] leading-6 p-3 rounded-xl break-words ${classes.bubbleBg}`}>{highlight(entry.text, searchTerm)}</div>
 				<div className="flex gap-2 mt-1">

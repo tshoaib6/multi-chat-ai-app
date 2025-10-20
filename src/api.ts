@@ -1,3 +1,10 @@
+export async function fetchPublicChats(token: string) {
+  const res = await fetch(`${API}/chat/public`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to fetch public chats');
+  return await res.json();
+}
 export async function fetchChat(token: string, chatId: number) {
   const res = await fetch(`${API}/chat/${chatId}`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -35,11 +42,11 @@ export async function fetchChats(token: string) {
   return await res.json();
 }
 
-export async function saveChat(token: string, title: string, messages: any[]) {
+export async function saveChat(token: string, title: string, topicId: string, messages: any[]) {
   const res = await fetch(`${API}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ title, messages })
+    body: JSON.stringify({ title, topicId, messages })
   });
   if (!res.ok) throw new Error('Failed to save chat');
   return await res.json();

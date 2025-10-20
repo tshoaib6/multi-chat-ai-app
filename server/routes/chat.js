@@ -17,9 +17,31 @@ function auth(req, res, next) {
 }
 
 router.post('/', auth, async (req, res) => {
-  const { title, messages } = req.body;
-  const chat = await Chat.create(req.user.id, title, messages);
+  const { title, topicId, messages, isPublic } = req.body;
+  console.log('[POST /chat] Creating chat with:', { userId: req.user.id, title, topicId, messages, isPublic });
+  const chat = await Chat.create(req.user.id, title, topicId, messages, isPublic ? 1 : 0);
   res.json(chat);
+});
+// List public chats
+router.get('/public', auth, async (req, res) => {
+  const chats = await Chat.listPublic();
+  res.json(chats);
+});
+
+// Join a public chat as participant
+router.post('/:id/join', auth, async (req, res) => {
+  const chatId = req.params.id;
+  const userId = req.user.id;
+  const participants = await Chat.joinParticipant(chatId, userId);
+  res.json({ participants });
+});
+
+// Toggle chat privacy
+router.post('/:id/privacy', auth, async (req, res) => {
+  const chatId = req.params.id;
+  const { isPublic } = req.body;
+  await Chat.togglePrivacy(chatId, isPublic);
+  res.json({ success: true });
 });
 
 router.get('/', auth, async (req, res) => {
