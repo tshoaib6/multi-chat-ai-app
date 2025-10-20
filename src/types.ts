@@ -33,4 +33,5 @@ topicId: string;
 speakerId: SpeakerId;
 text: string;
 timestamp: number; // epoch ms
+	reactions?: Record<string, string[]>; // emoji -> array of speakerIds who reacted
 }

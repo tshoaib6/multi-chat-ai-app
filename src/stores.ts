@@ -12,6 +12,11 @@ transcript: TranscriptEntry[];
 startedAt?: number;
 typingActive: boolean;
 typingSpeakerId?: SpeakerId;
+theme: 'light' | 'dark';
+setTheme: (t: 'light' | 'dark') => void;
+searchTerm?: string;
+setSearch: (s: string) => void;
+toggleReaction: (entryId: string, emoji: string, by: SpeakerId) => void;
 addEntry: (e: TranscriptEntry) => void;
 setTopics: (t: Topic[]) => void;
 setTopic: (id: string) => void;
@@ -32,6 +37,12 @@ lineIndex: 0,
 transcript: [],
 typingActive: false,
 typingSpeakerId: undefined,
+// initialize theme from localStorage if present, default to light
+theme: (typeof window !== 'undefined' && localStorage.getItem('theme') === 'dark') ? 'dark' : 'light',
+setTheme: (t) => {
+	set({ theme: t });
+	try { localStorage.setItem('theme', t); } catch {}
+},
 addEntry: (e) => set((s) => ({ transcript: [...s.transcript, e] })),
 setTopics: (t) => set({ topics: t, currentTopicId: t[0]?.id ?? '' }),
 setTopic: (id) => set({ currentTopicId: id }),
@@ -40,6 +51,18 @@ setSpeed: (s) => set({ speed: s }),
 setLineIndex: (i) => set({ lineIndex: i }),
 resetPlayback: () => set({ lineIndex: 0, transcript: [], startedAt: Date.now() }),
 setTyping: (active: boolean, speakerId?: SpeakerId) => set({ typingActive: active, typingSpeakerId: speakerId }),
+searchTerm: undefined,
+setSearch: (s: string) => set({ searchTerm: s }),
+toggleReaction: (entryId: string, emoji: string, by: SpeakerId) => set((state) => ({
+	transcript: state.transcript.map(e => {
+		if (e.id !== entryId) return e;
+		const reactions = { ...(e.reactions ?? {}) } as Record<string, string[]>;
+		const list = reactions[emoji] ?? [];
+		const has = list.includes(by);
+		reactions[emoji] = has ? list.filter(x => x !== by) : [...list, by];
+		return { ...e, reactions };
+	}),
+})),
 }));
 
 

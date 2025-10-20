@@ -8,9 +8,10 @@
   line-height: 1.5;
   font-weight: 400;
 
+  /* make light theme the default */
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: #213547;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -48,9 +49,11 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  /* light theme default */
+  background-color: #f9f9f9;
+  color: #213547;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.25s, background-color 180ms ease, color 180ms ease;
 }
 button:hover {
   border-color: #646cff;
@@ -60,17 +63,26 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* dark mode overrides: applied when .dark is present on <html> or <body> */
+.dark {
+  color: rgba(255,255,255,0.95);
+  background-color: #0b1220;
+}
+
+a:hover {
+  color: #747bff;
+}
+
+/* buttons in dark mode should be darker with readable text */
+.dark button {
+  background-color: #111827;
+  color: rgba(255,255,255,0.95);
+  border-color: rgba(255,255,255,0.06);
+}
+
+/* add a smooth transition for theme changes */
+html, body, .min-h-screen {
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
 .chat-scroll::-webkit-scrollbar { width: 8px; }
@@ -87,3 +99,35 @@ img, svg {
 .chat-scroll {
   scroll-behavior: smooth;
 }
+
+/* fixed composer container (centered, with subtle shadow) */
+.composer-fixed-outer {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1rem;
+  width: 100%;
+  max-width: 48rem; /* same as max-w-6xl container feel */
+  padding: 0 1rem;
+  pointer-events: none; /* allow inner to manage pointer */
+  z-index: 50;
+}
+.composer-fixed {
+  pointer-events: auto;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 8px 30px rgba(2,6,23,0.12);
+  border-radius: 12px;
+  padding: 0.5rem;
+}
+.dark .composer-fixed { background: rgba(6,7,12,0.6); }
+
+/* nicer select wrapper */
+.select-wrapper { position: relative; display: inline-block; }
+.select-wrapper select { appearance: none; -webkit-appearance: none; padding-right: 2.25rem; }
+.select-wrapper svg { position: absolute; right: 0.6rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
+
+/* subtle button hover lift */
+button:hover { transform: translateY(-2px); }
+button { transition: transform 160ms ease, background-color 160ms ease; }

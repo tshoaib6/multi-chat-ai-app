@@ -7,9 +7,11 @@ const { playing, speed, setSpeed } = useApp();
 return (
 <div className="flex items-center gap-2">
 <button
-className="px-3 py-1.5 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-onClick={() => setPlaying(!playing)}
->{playing ? 'Pause' : 'Play'}</button>
+	className="px-3 py-1.5 rounded-lg bg-gray-900 text-white"
+	onClick={() => setPlaying(!playing)}
+>
+	{playing ? 'Pause' : 'Play'}
+</button>
 
 
 <label className="text-sm opacity-70">Speed</label>
