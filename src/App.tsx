@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import TopicPicker from './components/TopicPicker';
 
 import { topicAnxiety } from './data/topics.anxiety';
@@ -12,12 +12,14 @@ import Message from './components/Message';
 import Composer from './components/Composer';
 import Participants from './components/Participants';
 import Controls from './components/Controls';
+import TypingDots from './components/TypingDots';
 
 
 
 
 export default function App(){
-const { setTopics, topics, currentTopicId, transcript, resetPlayback, playing } = useApp();
+const { setTopics, topics, currentTopicId, transcript, resetPlayback, playing, typingActive, typingSpeakerId } = useApp();
+const chatRef = useRef<HTMLDivElement | null>(null);
 const topic = topics.find(t=>t.id===currentTopicId);
 
 
@@ -30,6 +32,17 @@ resetPlayback();
 useEffect(()=>{ // clean up timers on unmount
 return () => stopScheduler();
 }, []);
+
+
+// Smooth scroll to bottom when transcript grows or when typing stops (a new AI message likely appended)
+useEffect(()=>{
+	const el = chatRef.current;
+	if (!el) return;
+	// wait for DOM updates then scroll to bottom smoothly
+	requestAnimationFrame(() => {
+		el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+	});
+}, [transcript.length, typingActive]);
 
 
 function handleExportTXT(){ if(topic) exportTXT(transcript, personIndex(), topic); }
@@ -55,7 +68,7 @@ return (
 
 
 <main className="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4 mt-4">
-<section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 md:p-4 flex flex-col min-h-[70vh]">
+<section className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 md:p-4 flex flex-col h-[60vh] md:h-[70vh]">
 {/* Topic summary & actions */}
 <div className="flex items-center justify-between mb-3">
 <div>
@@ -69,10 +82,22 @@ return (
 </div>
 </div>
 {/* Chat */}
-<div className="flex-1 overflow-auto chat-scroll space-y-4 pr-1" id="chat">
+<div ref={chatRef} className="flex-1 min-h-0 overflow-auto chat-scroll space-y-4 pr-1 md:pr-2" id="chat">
 {transcript.map(e => (
-<Message entry={e} key={e.id} />
+	<Message entry={e} key={e.id} />
 ))}
+
+{/* typing indicator: only show when a non-user speaker is typing */}
+{typingActive && typingSpeakerId && typingSpeakerId !== 'user' && (
+	<div className="flex gap-3 items-center">
+		<div className="shrink-0 w-9 h-9 rounded-full grid place-items-center text-xl bg-gray-100 dark:bg-gray-800">{/* avatar placeholder */}
+			{ /* show avatar from personas if available */ }
+			{ (personas as any)[typingSpeakerId]?.avatar }
+		</div>
+		<div className="text-sm text-gray-700 dark:text-gray-300"><TypingDots /></div>
+	</div>
+)}
+
 </div>
 
 
