@@ -44,6 +44,17 @@ router.post('/:id/privacy', auth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Delete chat
+router.delete('/:id', auth, async (req, res) => {
+  const chatId = req.params.id;
+  try {
+    await Chat.delete(chatId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/', auth, async (req, res) => {
   const chats = await Chat.listByUser(req.user.id);
   res.json(chats);

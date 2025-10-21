@@ -1,4 +1,3 @@
-
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
@@ -8,8 +7,14 @@ import { useApp } from '../stores';
 import { useState } from 'react';
 
 export default function Message({ entry, searchTerm }: { entry: TranscriptEntry, searchTerm?: string }) {
-	const p = personas[entry.speakerId];
-	const { toggleReaction } = useApp();
+	const p = personas[entry.speakerId] || { 
+		id: entry.speakerId, 
+		name: entry.speakerId, 
+		role: 'Unknown', 
+		color: 'gray', 
+		avatar: '❓'
+	};
+	const { toggleReaction, addParticipant } = useApp();
 	const userId = 'user';
 	const [playing, setPlaying] = useState(false);
 	const [utter, setUtter] = useState<SpeechSynthesisUtterance | null>(null);
@@ -20,8 +25,9 @@ export default function Message({ entry, searchTerm }: { entry: TranscriptEntry,
 		james: { avatarBg: 'bg-james/10', nameText: 'text-james-700 dark:text-james-300', bubbleBg: 'bg-james/5' },
 		maria: { avatarBg: 'bg-maria/10', nameText: 'text-maria-700 dark:text-maria-300', bubbleBg: 'bg-maria/5' },
 		user: { avatarBg: 'bg-user/10', nameText: 'text-user-700 dark:text-user-300', bubbleBg: 'bg-user/5' },
+		gray: { avatarBg: 'bg-gray-100', nameText: 'text-gray-700 dark:text-gray-300', bubbleBg: 'bg-gray-50' },
 	};
-	const classes = colorClasses[p.color] ?? { avatarBg: 'bg-gray-100', nameText: 'text-gray-700', bubbleBg: 'bg-gray-50' };
+	const classes = colorClasses[p.color] ?? colorClasses.gray;
 
 	// highlight search matches
 	function highlight(text: string, term?: string) {

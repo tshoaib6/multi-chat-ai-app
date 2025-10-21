@@ -1,3 +1,15 @@
+export async function fetchChatGPT(token: string, prompt: string, system?: string) {
+  const res = await fetch('http://localhost:4000/api/chatgpt', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ prompt, system })
+  });
+  if (!res.ok) throw new Error('Failed to fetch ChatGPT response');
+  return await res.json();
+}
 export async function fetchPublicChats(token: string) {
   const res = await fetch(`${API}/chat/public`, {
     headers: { Authorization: `Bearer ${token}` }
@@ -50,4 +62,24 @@ export async function saveChat(token: string, title: string, topicId: string, me
   });
   if (!res.ok) throw new Error('Failed to save chat');
   return await res.json();
+}
+
+export async function startDebateAPI(token: string, topicId: string) {
+  const res = await fetch(`${API}/debate/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ topicId })
+  });
+  if (!res.ok) throw new Error('Failed to start debate');
+  return await res.json(); // Expect { messages: [...] }
+}
+
+export async function nextDebateAPI(token: string, payload: { transcript: any[]; systemPrompt: string; nextSpeaker: string; turn: number; }) {
+  const res = await fetch(`${API}/debate/next`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Failed to get next debate message');
+  return await res.json(); // { message, userIntervention, nextSpeaker, turn, isEnd, conclusion }
 }

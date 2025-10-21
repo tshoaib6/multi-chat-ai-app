@@ -4,6 +4,8 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
+import chatgptRoutes from './routes/chatgpt.js';
+import debateRoutes from './routes/debate.js';
 
 const app = express();
 app.use(cors());
@@ -11,6 +13,8 @@ app.use(bodyParser.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/chatgpt', chatgptRoutes);
+app.use('/api/debate', debateRoutes);
 
 app.get('/', (req, res) => {
   res.send('Multi-Chat-AI backend running');

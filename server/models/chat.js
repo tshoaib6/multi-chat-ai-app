@@ -38,6 +38,20 @@ const Chat = {
     });
   },
 
+  async delete(chatId) {
+    const db = await getDb();
+    console.log('[Chat.delete] Deleting chat:', chatId);
+    return new Promise((resolve, reject) => {
+      db.run('DELETE FROM chats WHERE id = ?', [chatId], (err) => {
+        if (err) {
+          console.error('[Chat.delete] DB error:', err);
+          return reject(err);
+        }
+        resolve();
+      });
+    });
+  },
+
   async listPublic() {
     const db = await getDb();
     console.log('[Chat.listPublic] Listing all public chats');

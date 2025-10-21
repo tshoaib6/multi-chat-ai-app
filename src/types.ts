@@ -1,4 +1,4 @@
-export type SpeakerId = 'sarah' | 'james' | 'maria' | 'user';
+export type SpeakerId = 'sarah' | 'james' | 'maria' | 'user' | 'system';
 
 
 export interface Speaker {
@@ -34,4 +34,6 @@ speakerId: SpeakerId;
 text: string;
 timestamp: number; // epoch ms
 	reactions?: Record<string, string[]>; // emoji -> array of speakerIds who reacted
+	participants: SpeakerId[];
+	isPublic: boolean;
 }
