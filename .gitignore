@@ -22,3 +22,33 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.*
+server/.env
+
+# Build outputs
+build
+.next
+.vercel
+.cache
+.parcel-cache
+
+# Coverage
+coverage
+
+# Local data and SQLite
+*.sqlite
+*.sqlite-journal
+server/db.sqlite
+server/*.sqlite
+server/*.sqlite-journal
+
+# Misc
+*.log*
+*.pid
+*.seed
+*.tgz
+tmp
+temp
