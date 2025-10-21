@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import LoginPage from './pages/Login';
-import { fetchChats, saveChat, fetchChat, fetchPublicChats, startDebateAPI, nextDebateAPI } from './api';
+import { fetchChats, saveChat, fetchChat, fetchPublicChats, fetchChatGPT, startDebateAPI, nextDebateAPI } from './api';
 import TopicPicker from './components/TopicPicker';
 
 import { topicAnxiety } from './data/topics.anxiety';
@@ -23,9 +23,12 @@ const ComposerAny = Composer as any;
 export default function App(){
 // Chat mode: 'hardcoded' or 'api'
 const [chatMode, setChatMode] = useState<'hardcoded'|'api'>('hardcoded');
-	// Helper to get speakers index
+// AI availability state
+const [aiReady, setAiReady] = useState<boolean | null>(null);
+const [aiError, setAiError] = useState<string | null>(null);
+// Helper to get speakers index
 	function personIndex(){
-		return Object.fromEntries(Object.values(personas).map(p => [p.id, { name: p.name, role: p.role }])) as Record<string, {name:string; role:string}>;
+		return Object.fromEntries(Object.values(personas).map(p => [p.id, { name: p.name, role: p.role }])) as Record<string, {name:string; role:string}>
 	}
 
 	// Export handlers
@@ -97,6 +100,20 @@ const handleAuth = useCallback((newToken: string, newUser: any) => {
 	setUser(newUser);
 	localStorage.setItem('token', newToken);
 	localStorage.setItem('user', JSON.stringify(newUser));
+	// Immediately test OpenAI availability using the new token
+	(async () => {
+		try {
+			setAiError(null);
+			// Tiny, cheap probe to backend OpenAI proxy; system prompt kept minimal
+			await fetchChatGPT(newToken, 'ping', 'Respond with: ok');
+			setAiReady(true);
+			setChatMode('api');
+		} catch (e: any) {
+			setAiReady(false);
+			setChatMode('hardcoded');
+			setAiError(e?.message || 'OpenAI is unavailable. Using local demo mode.');
+		}
+	})();
 }, []);
 
 async function handleSelectChat(chatId: number) {
@@ -257,6 +274,15 @@ if (!token) {
 
 return (
 <div className="min-h-screen text-gray-900 dark:text-gray-100 bg-gradient-to-br from-blue-50 via-teal-50 to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+	{aiReady === false && (
+		<div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 p-3 text-sm flex items-center justify-center">
+			<span className="mr-2">⚠️</span>
+			<span>{aiError || 'OpenAI is unavailable. Switching to local demo mode.'} You can continue in Hardcoded mode or try again later.</span>
+		</div>
+	)}
+	{aiReady && chatMode === 'api' && (
+		<div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 p-2 text-xs text-center">OpenAI is connected. Enjoy AI-driven debates!</div>
+	)}
 	<header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 border-b border-gray-200 dark:border-gray-800">
 		<div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 flex flex-col sm:flex-row flex-wrap items-center gap-3 justify-between">
 			<div className="flex items-center gap-3 w-full sm:w-auto justify-between">
