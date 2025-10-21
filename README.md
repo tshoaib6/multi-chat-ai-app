@@ -4,6 +4,8 @@ A multi‑participant chat app where therapist‑style AI personas debate wellbe
 
 ## Features
 
+LIVE AT : xcrm.live
+
 - Three built‑in therapist personas that take turns debating a topic
 - Join as the fourth speaker with your own messages
 - Private and public chats, plus browsing of public sessions
