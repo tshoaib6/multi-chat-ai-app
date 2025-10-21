@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import LoginPage from './pages/Login';
-import { fetchChats, saveChat, fetchChat, fetchPublicChats, fetchChatGPT, startDebateAPI, nextDebateAPI } from './api';
+import { useNavigate } from 'react-router-dom';
+import logo from './assets/Multi.png';
+import { fetchChats, saveChat, fetchChat, fetchPublicChats, startDebateAPI, nextDebateAPI } from './api';
 import TopicPicker from './components/TopicPicker';
+import Tooltip from './components/Tooltip';
 
 import { topicAnxiety } from './data/topics.anxiety';
 import { topicDigital } from './data/topics.digital';
@@ -24,8 +26,8 @@ export default function App(){
 // Chat mode: 'hardcoded' or 'api'
 const [chatMode, setChatMode] = useState<'hardcoded'|'api'>('hardcoded');
 // AI availability state
-const [aiReady, setAiReady] = useState<boolean | null>(null);
-const [aiError, setAiError] = useState<string | null>(null);
+const [aiReady] = useState<boolean | null>(null);
+const [aiError] = useState<string | null>(null);
 // Helper to get speakers index
 	function personIndex(){
 		return Object.fromEntries(Object.values(personas).map(p => [p.id, { name: p.name, role: p.role }])) as Record<string, {name:string; role:string}>
@@ -46,6 +48,7 @@ const { setTopics, topics, currentTopicId, transcript, resetPlayback, playing, t
 const { setPlaying } = useApp(); // Moved setPlaying to its own line
 const chatRef = useRef<HTMLDivElement | null>(null);
 const topic = topics.find(t=>t.id===currentTopicId);
+const navigate = useNavigate();
 
 // Auth state
 const [token, setToken] = useState<string|null>(localStorage.getItem('token'));
@@ -54,6 +57,19 @@ const [privateChats, setPrivateChats] = useState<any[]>([]);
 const [publicChats, setPublicChats] = useState<any[]>([]);
 const [selectedChatId, setSelectedChatId] = useState<number|null>(null);
 const [loadingChats, setLoadingChats] = useState(false);
+// Set favicon to app logo while on chat page
+useEffect(() => {
+	const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+	if (!link) return;
+	const prevHref = link.getAttribute('href') || '';
+	const prevType = link.getAttribute('type') || '';
+	link.setAttribute('href', logo);
+	link.setAttribute('type', 'image/png');
+	return () => {
+		link.setAttribute('href', prevHref || '/vite.svg');
+		if (prevType) link.setAttribute('type', prevType);
+	};
+}, []);
 
 // On login, fetch chats
 useEffect(() => {
@@ -95,27 +111,6 @@ useEffect(() => {
 	fetchAllChats();
 }, [fetchAllChats]);
 
-const handleAuth = useCallback((newToken: string, newUser: any) => {
-	setToken(newToken);
-	setUser(newUser);
-	localStorage.setItem('token', newToken);
-	localStorage.setItem('user', JSON.stringify(newUser));
-	// Immediately test OpenAI availability using the new token
-	(async () => {
-		try {
-			setAiError(null);
-			// Tiny, cheap probe to backend OpenAI proxy; system prompt kept minimal
-			await fetchChatGPT(newToken, 'ping', 'Respond with: ok');
-			setAiReady(true);
-			setChatMode('api');
-		} catch (e: any) {
-			setAiReady(false);
-			setChatMode('hardcoded');
-			setAiError(e?.message || 'OpenAI is unavailable. Using local demo mode.');
-		}
-	})();
-}, []);
-
 async function handleSelectChat(chatId: number) {
 	setSelectedChatId(chatId);
 	if (!token) return;
@@ -131,18 +126,18 @@ async function handleSelectChat(chatId: number) {
 	} catch {}
 }
 
-function handleSaveChat(title: string, messages: any[]) {
-		if (!token || !topic) return;
-		console.log('[Frontend] Creating chat:', { token, title, topicId: topic.id, messages });
-		saveChat(token, title, topic.id, messages)
-			.then(chat => {
-				console.log('[Frontend] Chat created:', chat);
-				setPrivateChats([chat, ...privateChats]);
-				setSelectedChatId(chat.id);
-			})
-			.catch(err => {
-				console.error('[Frontend] Error creating chat:', err);
-			});
+function handleSaveChat(title: string, messages: any[], isPublic?: boolean) {
+        if (!token || !topic) return;
+        console.log('[Frontend] Creating chat:', { token, title, topicId: topic.id, messages, isPublic });
+        saveChat(token, title, topic.id, messages, isPublic)
+            .then(chat => {
+                console.log('[Frontend] Chat created:', chat);
+                setPrivateChats([chat, ...privateChats]);
+                setSelectedChatId(chat.id);
+            })
+            .catch(err => {
+                console.error('[Frontend] Error creating chat:', err);
+            });
 }
 
 
@@ -171,7 +166,30 @@ const [debateStates, setDebateStates] = useState<Record<string, DebateState>>({}
 // Active debate state for current topic
 const [debateState, setDebateState] = useState<DebateState | null>(null);
 const debateStateRef = useRef<DebateState | null>(null);
+// Onboarding guide: show after login once, or until dismissed
+const [showGuide, setShowGuide] = useState<boolean>(() => {
+	try {
+		return !!sessionStorage.getItem('showGuideOnce') || !localStorage.getItem('guideDismissed');
+	} catch {
+		return true;
+	}
+});
 useEffect(() => { debateStateRef.current = debateState; }, [debateState]);
+
+// Show/hide guide depending on auth and session flag
+useEffect(() => {
+	if (!token) {
+		setShowGuide(false);
+	} else if (sessionStorage.getItem('showGuideOnce')) {
+		setShowGuide(true);
+		sessionStorage.removeItem('showGuideOnce');
+	}
+}, [token]);
+
+function dismissGuide() {
+	setShowGuide(false);
+	try { localStorage.setItem('guideDismissed', '1'); } catch {}
+}
 
 function setDebateForCurrentTopic(ds: DebateState | null) {
   setDebateState(ds);
@@ -231,14 +249,26 @@ async function runNextTurn(delayMs?: number, dsOverride?: DebateState) {
     if (res?.userIntervention) {
       useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId, speakerId: 'system', text: res.userIntervention.text, timestamp: Date.now(), participants: [], isPublic: false });
     }
-    if (res?.isEnd) {
-      if (res?.conclusion) {
-        useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId, speakerId: 'system', text: res.conclusion.text, timestamp: Date.now(), participants: [], isPublic: false });
-      }
-      setDebateForCurrentTopic({ ...ds, running: false });
-      setPlaying(false);
-      return;
-    }
+		if (res?.isEnd) {
+			if (res?.conclusion) {
+				useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId, speakerId: 'system', text: res.conclusion.text, timestamp: Date.now(), participants: [], isPublic: false });
+			}
+			setDebateForCurrentTopic({ ...ds, running: false });
+			setPlaying(false);
+			// Save debate chat to backend when finished
+			if (token && topic) {
+				const debateMessages = useApp.getState().transcript.filter(e => e.topicId === currentTopicId);
+				saveChat(token, topic.title + ' (Debate)', topic.id, debateMessages, false)
+					.then(chat => {
+						setPrivateChats([chat, ...privateChats]);
+						setSelectedChatId(chat.id);
+					})
+					.catch(err => {
+						console.error('[Frontend] Error saving debate chat:', err);
+					});
+			}
+			return;
+		}
     const nextState: DebateState = { systemPrompt: ds.systemPrompt, nextSpeaker: res.nextSpeaker, turn: res.turn, running: true };
     setDebateForCurrentTopic(nextState);
     if (useApp.getState().playing) {
@@ -295,15 +325,11 @@ useEffect(() => {
 }, [transcript]);
 // If not logged in, show login page
 if (!token) {
-		return (
-			<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-teal-50 to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 animate-fadein">
-				<LoginPage onAuth={handleAuth} />
-			</div>
-		);
+		return null;
 }
 
 return (
-<div className="min-h-screen text-gray-900 dark:text-gray-100 bg-gradient-to-br from-blue-50 via-teal-50 to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+<div className="min-h-screen h-screen text-gray-900 dark:text-gray-100 bg-gradient-to-br from-blue-50 via-teal-50 to-green-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
 	{aiReady === false && (
 		<div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 p-3 text-sm flex items-center justify-center">
 			<span className="mr-2">⚠️</span>
@@ -316,6 +342,7 @@ return (
 	<header className="sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-gray-900/60 border-b border-gray-200 dark:border-gray-800">
 		<div className="max-w-6xl mx-auto px-2 sm:px-4 py-3 flex flex-col sm:flex-row flex-wrap items-center gap-3 justify-between">
 			<div className="flex items-center gap-3 w-full sm:w-auto justify-between">
+				<img src={logo} alt="Multi logo" className="h-8 w-8 rounded-lg shadow-sm" />
 				<h1 className="text-lg font-semibold">Multi‑AI Therapist Debate</h1>
 				<span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-800">Demo</span>
 				<div className="ml-4 flex items-center gap-2">
@@ -332,25 +359,33 @@ return (
 				<div className="select-wrapper w-full sm:w-auto">
 					<input value={searchTerm ?? ''} onChange={e => setSearch(e.target.value)} placeholder="Search messages…" className="px-3 py-2 rounded-md border w-full sm:w-auto" />
 				</div>
-				<button
-					onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-					aria-label="Toggle dark mode"
-					className="p-2 rounded-md border border-gray-200 dark:border-gray-700 flex items-center"
-				>
-					{theme === 'dark' ? (
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg>
-					) : (
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v2M12 19v-2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-					)}
-				</button>
-				<button onClick={handleExportTXT} className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center gap-2">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 7h10v2H7zM7 11h10v2H7z" fill="currentColor"/></svg>
-					Export TXT
-				</button>
-				<button onClick={handleExportJSON} className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center gap-2">
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2v6M12 22v-6M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-					Export JSON
-				</button>
+				<Tooltip content="Toggle light/dark theme" placement="bottom">
+                  <button
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    aria-label="Toggle dark mode"
+                    className="p-2 rounded-md border border-gray-200 dark:border-gray-700 flex items-center"
+                  >
+                    {theme === 'dark' ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v2M12 19v-2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    )}
+                  </button>
+                </Tooltip>
+                <Tooltip content="Export current transcript as .txt" placement="bottom">
+                  <button onClick={handleExportTXT} className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 7h10v2H7zM7 11h10v2H7z" fill="currentColor"/></svg>
+                    Export TXT
+                  </button>
+                </Tooltip>
+                <Tooltip content="Export current transcript as JSON" placement="bottom">
+                  <button onClick={handleExportJSON} className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2v6M12 22v-6M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Export JSON
+                  </button>
+                </Tooltip>
+				{/* Top-right small logo */}
+				<img src={logo} alt="Multi logo" className="h-7 w-7 rounded-md hidden sm:block" />
 			</div>
 		</div>
 	</header>
@@ -360,12 +395,26 @@ return (
 		<aside className="w-full lg:w-[300px] flex-shrink-0 space-y-4 min-h-[70vh] flex flex-col order-2 lg:order-1 mb-4 lg:mb-0">
 		{/* Participants section at top */}
 		<div className="mb-2">
-			<Participants />
+			<Participants participantsInfo={
+				(() => {
+					if (selectedChatId && privateChats.length) {
+						const chat = privateChats.find(c => c.id === selectedChatId);
+						if (chat && chat.participantsInfo) return chat.participantsInfo;
+					}
+					if (selectedChatId && publicChats.length) {
+						const chat = publicChats.find(c => c.id === selectedChatId);
+						if (chat && chat.participantsInfo) return chat.participantsInfo;
+					}
+					return [];
+				})()
+			} />
 		</div>
 		{/* Debate section */}
 		<div className="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
 			<h2 className="font-semibold mb-2">Debate</h2>
-			<button onClick={handleDebateToggle} className="mb-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold">{playing ? 'Pause Debate' : debateState?.running ? 'Resume Debate' : 'Start Debate'}</button>
+			<Tooltip content={playing ? 'Pause the automated debate' : debateState?.running ? 'Resume the automated debate' : 'Start an automated debate with the AIs'} placement="right">
+            <button onClick={handleDebateToggle} className="mb-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold">{playing ? 'Pause Debate' : debateState?.running ? 'Resume Debate' : 'Start Debate'}</button>
+          </Tooltip>
 			{/* Add more UI elements for submitting entries and viewing debates */}
 		</div>
 		{/* User profile and logout */}
@@ -383,6 +432,7 @@ return (
 					localStorage.removeItem('user');
 					setPrivateChats([]);
 					setSelectedChatId(null);
+					navigate('/');
 				}}
 			>Logout</button>
 		</div>
@@ -400,9 +450,9 @@ return (
 								speakerId: 'user',
 								text: firstQuestion,
 								timestamp: Date.now(),
-								participants: [], // Add participants array
-								isPublic: false, // Set isPublic to false
-							}]);
+								participants: [],
+								isPublic: false,
+							}], false);
 						}
 					} else {
 						alert('Please select a topic first');
@@ -428,24 +478,25 @@ return (
 									{chat.title || 'Untitled'}
 									<span className="ml-2 text-xs text-gray-500">{new Date(chat.createdAt).toLocaleString()}</span>
 								</button>
-								{chat.userId === user.id && (
-									<button
-										onClick={() => {
-											if (window.confirm('Delete this chat?')) {
-												fetch(`/api/chat/${chat.id}`, {
-													method: 'DELETE',
-													headers: { 'Authorization': `Bearer ${token}` }
-												}).then(() => {
-													setPublicChats(chats => chats.filter(c => c.id !== chat.id));
-													if (selectedChatId === chat.id) setSelectedChatId(null);
-												});
-											}
-										}}
-										className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
-									>
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-									</button>
-								)}
+																{chat.userId === user.id && (
+																	<button
+																		onClick={() => {
+																			if (window.confirm('Delete this chat?')) {
+																				fetch(`http://localhost:4000/api/chat/${chat.id}`, {
+																					method: 'DELETE',
+																					headers: { 'Authorization': `Bearer ${token}` }
+																				}).then(() => {
+																					setPublicChats(chats => chats.filter(c => c.id !== chat.id));
+																					setPrivateChats(chats => chats.filter(c => c.id !== chat.id));
+																					if (selectedChatId === chat.id) setSelectedChatId(null);
+																				});
+																			}
+																		}}
+																		className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
+																	>
+																		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+																	</button>
+																)}
 							</li>
 						))}
 					</ul>
@@ -468,42 +519,60 @@ return (
 								</button>
 								<div className="flex items-center">
 									{/* Toggle Privacy Button */}
-									<button
-										onClick={() => {
-											fetch(`/api/chat/${chat.id}/privacy`, {
-												method: 'POST',
-												headers: {
-													'Authorization': `Bearer ${token}`,
-													'Content-Type': 'application/json'
-												},
-												body: JSON.stringify({ isPublic: true })
-											}).then(() => {
-												setPrivateChats(chats => chats.filter(c => c.id !== chat.id));
-												setPublicChats(chats => [chat, ...chats]);
-											});
-										}}
-										className="ml-2 p-1 text-blue-500 hover:bg-blue-100 rounded"
-										title="Make Public"
-									>
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
-									</button>
+																			<button
+																				onClick={() => {
+																					fetch(`http://localhost:4000/api/chat/${chat.id}/privacy`, {
+																						method: 'POST',
+																						headers: {
+																							'Authorization': `Bearer ${token}`,
+																							'Content-Type': 'application/json'
+																						},
+																						body: JSON.stringify({ isPublic: true })
+																					}).then(() => {
+																						setPrivateChats(chats => chats.filter(c => c.id !== chat.id));
+																						setPublicChats(chats => [chat, ...chats]);
+																					});
+																				}}
+																				className="ml-2 p-1 text-blue-500 hover:bg-blue-100 rounded"
+																				title="Make Public"
+																			>
+																				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+																			</button>
+														{/* Join public chat button (if not participant) */}
+																			{chat.isPublic && !chat.participants?.includes(user.id) && (
+																				<button
+																					onClick={() => {
+																						fetch(`http://localhost:4000/api/chat/${chat.id}/join`, {
+																							method: 'POST',
+																							headers: { 'Authorization': `Bearer ${token}` }
+																						}).then(() => {
+																							fetchAllChats();
+																						});
+																					}}
+																					className="ml-2 p-1 text-green-500 hover:bg-green-100 rounded"
+																					title="Join Chat"
+																				>
+																					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M12 8v4l3 3"/></svg>
+																				</button>
+																			)}
 									{/* Delete Button */}
-									<button
-										onClick={() => {
-											if (window.confirm('Delete this chat?')) {
-												fetch(`/api/chat/${chat.id}`, {
-													method: 'DELETE',
-													headers: { 'Authorization': `Bearer ${token}` }
-												}).then(() => {
-													setPrivateChats(chats => chats.filter(c => c.id !== chat.id));
-													if (selectedChatId === chat.id) setSelectedChatId(null);
-												});
-											}
-										}}
-										className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
-									>
-										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-									</button>
+														<button
+															onClick={() => {
+																if (window.confirm('Delete this chat?')) {
+																	fetch(`http://localhost:4000/api/chat/${chat.id}`, {
+																		method: 'DELETE',
+																		headers: { 'Authorization': `Bearer ${token}` }
+																	}).then(() => {
+																		setPrivateChats(chats => chats.filter(c => c.id !== chat.id));
+																		setPublicChats(chats => chats.filter(c => c.id !== chat.id));
+																		if (selectedChatId === chat.id) setSelectedChatId(null);
+																	});
+																}
+															}}
+															className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded"
+														>
+															<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+														</button>
 								</div>
 							</li>
 						))}
@@ -564,8 +633,29 @@ return (
 	<ComposerAny onSaveChat={handleSaveChat} />
 </div>
 </div>
-</section>
-</main>
+ </section>
+ {/* Add small pulsing hint dots near key buttons on first visit */}
+{token && showGuide && (
+	<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+		<div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 sm:p-8 max-w-lg w-[92%] sm:w-full text-center relative">
+			<button
+				className="absolute top-3 right-3 px-3 py-1 rounded bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700"
+				onClick={dismissGuide}
+			>
+				Got it
+			</button>
+			<h2 className="text-xl sm:text-2xl font-bold mb-3">Welcome! Quick tips</h2>
+			<ul className="text-left text-sm sm:text-base mb-3 list-disc list-inside space-y-1">
+				<li>Pick a topic to start a therapist debate.</li>
+				<li>Use the green button to Start/Pause the automated debate.</li>
+				<li>Hover buttons to see their tooltips for actions.</li>
+				<li>Save, export, and share public chats.</li>
+			</ul>
+			<p className="text-sm text-gray-600 dark:text-gray-300">You can re-open tips by clearing browser storage for this site.</p>
+		</div>
+	</div>
+)}
+	</main>
 </div>
 );
 }

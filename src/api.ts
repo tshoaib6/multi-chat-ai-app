@@ -36,11 +36,11 @@ export async function login(username: string, password: string) {
   return await res.json();
 }
 
-export async function register(username: string, password: string) {
+export async function register(username: string, password: string, fullName: string) {
   const res = await fetch(`${API}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, password, fullName })
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Register failed');
   return await res.json();
@@ -54,11 +54,11 @@ export async function fetchChats(token: string) {
   return await res.json();
 }
 
-export async function saveChat(token: string, title: string, topicId: string, messages: any[]) {
+export async function saveChat(token: string, title: string, topicId: string, messages: any[], isPublic?: boolean) {
   const res = await fetch(`${API}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ title, topicId, messages })
+    body: JSON.stringify({ title, topicId, messages, ...(typeof isPublic === 'boolean' ? { isPublic } : {}) })
   });
   if (!res.ok) throw new Error('Failed to save chat');
   return await res.json();
@@ -74,6 +74,9 @@ export async function startDebateAPI(token: string, topicId: string) {
   return await res.json(); // Expect { messages: [...] }
 }
 
+/**
+ * Calls the next step in the debate, expects participants to possibly have fullName.
+ */
 export async function nextDebateAPI(token: string, payload: { transcript: any[]; systemPrompt: string; nextSpeaker: string; turn: number; }) {
   const res = await fetch(`${API}/debate/next`, {
     method: 'POST',
@@ -81,5 +84,6 @@ export async function nextDebateAPI(token: string, payload: { transcript: any[];
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error('Failed to get next debate message');
-  return await res.json(); // { message, userIntervention, nextSpeaker, turn, isEnd, conclusion }
+  // If the backend returns participantsInfo with fullName, pass it through
+  return await res.json(); // { message, userIntervention, nextSpeaker, turn, isEnd, conclusion, participantsInfo? }
 }

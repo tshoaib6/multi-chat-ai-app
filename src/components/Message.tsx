@@ -3,18 +3,22 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import { personas } from '../data/personas';
 import type { TranscriptEntry } from '../types';
+import React, { useState } from 'react';
 import { useApp } from '../stores';
-import { useState } from 'react';
+const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null;
 
 export default function Message({ entry, searchTerm }: { entry: TranscriptEntry, searchTerm?: string }) {
-	const p = personas[entry.speakerId] || { 
+	let p = personas[entry.speakerId] || { 
 		id: entry.speakerId, 
 		name: entry.speakerId, 
 		role: 'Unknown', 
 		color: 'gray', 
 		avatar: '❓'
 	};
-	const { toggleReaction, addParticipant } = useApp();
+	if (entry.speakerId === 'user' && user && user.username) {
+		p = { ...p, name: user.username };
+	}
+	const { toggleReaction } = useApp();
 	const userId = 'user';
 	const [playing, setPlaying] = useState(false);
 	const [utter, setUtter] = useState<SpeechSynthesisUtterance | null>(null);
@@ -61,13 +65,7 @@ export default function Message({ entry, searchTerm }: { entry: TranscriptEntry,
 			window.speechSynthesis.speak(u);
 		}
 	}
-	function stop() {
-		if ('speechSynthesis' in window) {
-			window.speechSynthesis.cancel();
-			setPlaying(false);
-			setUtter(null);
-		}
-	}
+
 
 	return (
 		<div className="flex gap-3 group">
