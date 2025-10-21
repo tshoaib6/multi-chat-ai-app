@@ -1,0 +1,16 @@
+# Frontend-only Dockerfile for Vite React static build
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml* package-lock.json* yarn.lock* ./
+RUN npm ci || yarn install || pnpm install
+
+COPY . .
+RUN npm run build || yarn build || pnpm build
+
+# Serve static files with nginx
+FROM nginx:alpine AS static
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY public /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,12 @@
+# Backend-only Dockerfile for Express + SQLite API
+FROM node:20-alpine AS server
+WORKDIR /app
+
+COPY server/package.json ./package.json
+RUN npm ci --omit=dev || yarn install --production || pnpm install --prod
+
+COPY server ./
+
+EXPOSE 4000
+ENV NODE_ENV=production
+CMD ["node", "index.js"]

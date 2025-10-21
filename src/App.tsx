@@ -281,7 +281,20 @@ async function runNextTurn(delayMs?: number, dsOverride?: DebateState) {
   }
 }
 
-// Debate toggle is handled inline on the button within the Debate card
+function handleDebateToggle() {
+  if (!currentTopicId) return;
+  const ds = debateStates[currentTopicId];
+  if (!playing) {
+    if (ds && ds.running) {
+      setPlaying(true);
+      void runNextTurn(800, ds);
+    } else {
+      void beginDebate();
+    }
+  } else {
+    setPlaying(false);
+  }
+}
 
 // When topic changes, load/save per-topic snapshot and resume if playing is on
 useEffect(() => {
@@ -377,9 +390,9 @@ return (
 		</div>
 	</header>
 
-    <main className="w-full flex flex-col lg:flex-row justify-center items-stretch gap-4 sm:gap-6 mt-4 px-1 sm:px-2 flex-1 min-h-0">
+	<main className="w-full flex flex-col lg:flex-row justify-center items-stretch gap-4 sm:gap-6 mt-4 px-1 sm:px-2">
 		{/* Sidebar left */}
-		<aside className="w-full lg:w-[300px] flex-shrink-0 space-y-4 h-full min-h-0 overflow-auto flex flex-col order-2 lg:order-1 mb-4 lg:mb-0">
+		<aside className="w-full lg:w-[300px] flex-shrink-0 space-y-4 min-h-[70vh] flex flex-col order-2 lg:order-1 mb-4 lg:mb-0">
 		{/* Participants section at top */}
 		<div className="mb-2">
 			<Participants participantsInfo={
@@ -396,7 +409,14 @@ return (
 				})()
 			} />
 		</div>
-		{/* Debate controls moved into the main chat panel */}
+		{/* Debate section */}
+		<div className="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+			<h2 className="font-semibold mb-2">Debate</h2>
+			<Tooltip content={playing ? 'Pause the automated debate' : debateState?.running ? 'Resume the automated debate' : 'Start an automated debate with the AIs'} placement="right">
+            <button onClick={handleDebateToggle} className="mb-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold">{playing ? 'Pause Debate' : debateState?.running ? 'Resume Debate' : 'Start Debate'}</button>
+          </Tooltip>
+			{/* Add more UI elements for submitting entries and viewing debates */}
+		</div>
 		{/* User profile and logout */}
 		<div className="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-between">
 			<div>
@@ -569,32 +589,25 @@ return (
 		{/* Centered chat panel */}
 	<section className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-2 sm:p-3 md:p-4 flex flex-col h-[60vh] sm:h-[70vh] w-full order-1 lg:order-2 overflow-hidden">
 {/* Topic summary & actions */}
-<div className="flex items-start gap-3 mb-3">
-	<div className="flex-1">
-		<div className="font-semibold">{topic?.title}</div>
-		<div className="text-sm opacity-70">{topic?.summary}</div>
-	</div>
-	{/* Debate Card now in center */}
-	<div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 w-full sm:w-auto">
-		<h3 className="font-semibold mb-2">Debate</h3>
-		<Tooltip content={playing ? 'Pause the automated debate' : debateState?.running ? 'Resume the automated debate' : 'Start an automated debate with the AIs'} placement="left">
-			<button
-				onClick={async () => {
-					if (!playing) {
-						await beginDebate();
-					} else {
-						setPlaying(false);
-					}
-				}}
-				className="w-full sm:w-auto px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold"
-			>
-				{playing ? 'Pause Debate' : debateState?.running ? 'Resume Debate' : 'Start Debate'}
-			</button>
-		</Tooltip>
-	</div>
+<div className="flex items-center justify-between mb-3">
+<div>
+<div className="font-semibold">{topic?.title}</div>
+<div className="text-sm opacity-70">{topic?.summary}</div>
+</div>
+<div>
+<button className="text-sm underline opacity-80" onClick={async ()=> {
+  if (!playing) {
+    await beginDebate();
+  } else {
+    setPlaying(false);
+  }
+}}>
+  {playing ? 'Pause' : 'Play'} debate
+</button>
+</div>
 </div>
 {/* Chat */}
-<div ref={chatRef} className="flex-1 min-h-0 overflow-auto chat-scroll space-y-4 pr-1 md:pr-2" id="chat">
+<div ref={chatRef} className="flex-1 min-h-0 overflow-auto chat-scroll space-y-4 pr-1 md:pr-2 max-h-[40vh] sm:max-h-none" id="chat">
 {transcript.map(e => (
 	<Message entry={e} key={e.id} searchTerm={searchTerm} />
 ))}

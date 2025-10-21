@@ -78,7 +78,7 @@ participants: [],
 isPublic: false,
 therapists: [],
 debateEntries: [],
-startDebate: (topicId: string) => set((state) => ({
+startDebate: (topicId: string) => set(() => ({
     debateEntries: [],
     currentTopicId: topicId,
     playing: true,
@@ -87,7 +87,7 @@ startDebate: (topicId: string) => set((state) => ({
 submitDebateResponse: (entry: string) => set((state) => ({
     debateEntries: [...state.debateEntries, entry],
 })),
-endDebate: () => set((state) => ({
+endDebate: () => set(() => ({
 		// debateEntries: [],
     playing: false,
 })),

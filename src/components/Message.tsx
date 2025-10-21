@@ -3,8 +3,8 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import { personas } from '../data/personas';
 import type { TranscriptEntry } from '../types';
-import React, { useState } from 'react';
 import { useApp } from '../stores';
+import { useState } from 'react';
 const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null;
 
 export default function Message({ entry, searchTerm }: { entry: TranscriptEntry, searchTerm?: string }) {

@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+npm-debug.log
+yarn-error.log
+.vscode
+**/*.local
+**/*.log
+server/node_modules
+server/public
+server/*.db

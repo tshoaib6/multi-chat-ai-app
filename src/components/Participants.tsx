@@ -1,5 +1,4 @@
 import { useApp } from '../stores';
-import { useState, useEffect } from 'react';
 
 export default function Participants({ participantsInfo = [] }: { participantsInfo?: {id:number, username:string, fullName?:string}[] }) {
   // If participantsInfo is not passed, fallback to personas

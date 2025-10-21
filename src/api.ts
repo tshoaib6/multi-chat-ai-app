@@ -1,5 +1,5 @@
 export async function fetchChatGPT(token: string, prompt: string, system?: string) {
-  const res = await fetch('http://localhost:4000/api/chatgpt', {
+  const res = await fetch('http://localhost:5055/api/chatgpt', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ export async function fetchChat(token: string, chatId: number) {
   if (!res.ok) throw new Error('Failed to fetch chat');
   return await res.json();
 }
-const API = 'http://localhost:4000/api';
+const API = 'http://localhost:5055/api';
 
 export async function login(username: string, password: string) {
   const res = await fetch(`${API}/auth/login`, {

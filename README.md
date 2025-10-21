@@ -53,6 +53,48 @@ pnpm dev      # starts Vite on http://localhost:5173
 
 Open http://localhost:5173 and click Login to get started.
 
+### Docker
+
+You can build a single image that serves both the API and the built UI via Express:
+
+```bash
+# Build image
+docker build -t multi-chat-ai-app .
+
+# Run container (maps port 4000)
+docker run --rm -p 4000:4000 \
+	-e OPENAI_API_KEY=your_openai_key \
+	-e JWT_SECRET=supersecret \
+	multi-chat-ai-app
+
+# App will be available at http://localhost:4000
+# Frontend is served at /, API is under /api
+```
+
+### Split containers (API and UI)
+
+You can build and run the backend and frontend as separate containers:
+
+**Backend (Express API):**
+```bash
+docker build -f Dockerfile.server -t multi-chat-ai-server .
+docker run --rm -p 4000:4000 \
+	-e OPENAI_API_KEY=your_openai_key \
+	-e JWT_SECRET=supersecret \
+	multi-chat-ai-server
+```
+
+**Frontend (Vite static build + Nginx):**
+```bash
+docker build -f Dockerfile.frontend -t multi-chat-ai-frontend .
+docker run --rm -p 80:80 multi-chat-ai-frontend
+```
+
+**Usage:**
+- The API will be at http://localhost:4000/api
+- The UI will be at http://localhost (port 80)
+- Update the API base URL in `src/api.ts` if you deploy to different hosts/ports.
+
 ## Environment
 
 The frontend expects the backend at http://localhost:4000 (see `src/api.ts`). If you change the server port or host, update the `API` base URL in that file.
