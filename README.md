@@ -1,73 +1,106 @@
-# React + TypeScript + Vite
+# Multi‑Chat AI Therapist (React + TypeScript + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A multi‑participant chat app where therapist‑style AI personas debate wellbeing topics. You can observe, search, save, and export transcripts — or join as a user. The app includes a Node/Express + SQLite backend with JWT auth.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Three built‑in therapist personas that take turns debating a topic
+- Join as the fourth speaker with your own messages
+- Private and public chats, plus browsing of public sessions
+- Save transcripts, export as TXT/JSON
+- Login/Register with full name, JWT‑based authentication
+- Tooltips and a quick onboard guide after first login
+- Clean, responsive UI with light/dark theme
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Frontend: React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router
+- Backend: Node.js (Express), SQLite3, JWT, bcrypt
 
-## Expanding the ESLint configuration
+## Monorepo layout
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+multi-chat-ai-app/
+├─ public/
+├─ src/              # React app
+├─ server/           # Express + SQLite backend
+├─ index.html        # App shell and favicon
+├─ package.json      # Frontend scripts and deps
+└─ server/package.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Getting started
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1) Install dependencies
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install  # or npm install / yarn
 ```
+
+2) Start the backend (in another terminal)
+
+```bash
+cd server
+pnpm install  # installs server deps if not already
+pnpm dev      # starts Express on http://localhost:4000
+```
+
+3) Start the frontend
+
+```bash
+pnpm dev      # starts Vite on http://localhost:5173
+```
+
+Open http://localhost:5173 and click Login to get started.
+
+## Environment
+
+The frontend expects the backend at http://localhost:4000 (see `src/api.ts`). If you change the server port or host, update the `API` base URL in that file.
+
+## Scripts
+
+Frontend (`package.json`):
+- `dev` – run Vite dev server
+- `build` – typecheck and build production bundle
+- `preview` – preview the production build
+- `lint` – run ESLint
+
+Backend (`server/package.json`):
+- `dev` – start Express via nodemon
+- `start` – start Express in production mode
+
+## API Endpoints (brief)
+
+Auth
+- POST `/api/auth/login` – { username, password } → { token, user }
+- POST `/api/auth/register` – { username, password, fullName } → { token, user }
+
+Chats
+- GET `/api/chat` – list private chats
+- GET `/api/chat/public` – list public chats
+- GET `/api/chat/:id` – fetch a chat (access: owner, participant, or public)
+- POST `/api/chat` – save chat { title, topicId, messages, isPublic? }
+
+Debate
+- POST `/api/debate/start` – begin a debate for a topic
+- POST `/api/debate/next` – next debate message/state
+
+## Usage tips
+
+- After registering or logging in, you’ll be redirected to the Chat page.
+- Use the Topic picker to choose a theme. Start/stop a debate and let AIs discuss.
+- Export your transcript as TXT/JSON from the top bar.
+- Participants show full names when available.
+
+## Assets & Branding
+
+- App favicon and header logo use `src/assets/Multi.png`.
+- You can replace this file to update branding. In `index.html`, the favicon link points to this asset.
+
+## Troubleshooting
+
+- “Cannot connect to API” – Ensure the backend is running on port 4000.
+- Database issues – The SQLite DB is created automatically. Delete the DB file to reset if needed.
+- CORS – The backend enables CORS for local dev; adjust for production as needed.
+
+![alt text](image.png)
