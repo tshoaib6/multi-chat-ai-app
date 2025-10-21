@@ -112,7 +112,10 @@ const Chat = {
     return new Promise((resolve, reject) => {
       db.get('SELECT * FROM chats WHERE id = ?', [id], (err, row) => {
         if (err) return reject(err);
-        if (row) row.messages = JSON.parse(row.messages);
+        if (row) {
+          row.messages = JSON.parse(row.messages);
+          row.participants = JSON.parse(row.participants || '[]');
+        }
         resolve(row);
       });
     });

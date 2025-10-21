@@ -2,7 +2,7 @@ import getDb from '../db.js';
 import bcrypt from 'bcryptjs';
 
 const User = {
-  async create(username, password, isAdmin = 0) {
+  async create(username, password, fullName = '', isAdmin = 0) {
     const db = await getDb();
     // Check if user exists first
     const existing = await User.findByUsername(username);
@@ -12,11 +12,11 @@ const User = {
     const passwordHash = await bcrypt.hash(password, 10);
     return new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (username, passwordHash, isAdmin) VALUES (?, ?, ?)',
-        [username, passwordHash, isAdmin],
+        'INSERT INTO users (username, passwordHash, fullName, isAdmin) VALUES (?, ?, ?, ?)',
+        [username, passwordHash, fullName, isAdmin],
         function (err) {
           if (err) return reject(err);
-          resolve({ id: this.lastID, username, isAdmin });
+          resolve({ id: this.lastID, username, fullName, isAdmin });
         }
       );
     });

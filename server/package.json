@@ -1,0 +1,30 @@
+{
+  "name": "multi-chat-ai-server",
+  "version": "1.0.0",
+  "description": "Backend server for Multi-Chat AI App (Express, SQLite, JWT)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "react-router-dom": "^7.9.4",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "chat",
+    "ai",
+    "express",
+    "sqlite",
+    "jwt"
+  ],
+  "author": "tshoaib6",
+  "license": "MIT"
+}

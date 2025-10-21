@@ -60,10 +60,30 @@ router.get('/', auth, async (req, res) => {
   res.json(chats);
 });
 
+import User from '../models/user.js';
 router.get('/:id', auth, async (req, res) => {
   const chat = await Chat.get(req.params.id);
-  if (!chat || chat.userId !== req.user.id) return res.status(404).json({ error: 'Not found' });
-  res.json(chat);
+  if (!chat) return res.status(404).json({ error: 'Not found' });
+  // Allow if user is owner, participant, or chat is public
+  const isOwner = chat.userId === req.user.id;
+  const isParticipant = Array.isArray(chat.participants) && chat.participants.includes(req.user.id);
+  const isPublic = !!chat.isPublic;
+  if (!isOwner && !isParticipant && !isPublic) return res.status(404).json({ error: 'Not found' });
+  // Fetch usernames for all participants
+  let participantsInfo = [];
+  if (Array.isArray(chat.participants) && chat.participants.length > 0) {
+    const db = await (await import('../db.js')).default();
+    const ids = chat.participants.map(Number).filter(Boolean);
+    if (ids.length > 0) {
+      await new Promise((resolve) => {
+        db.all(`SELECT id, username, fullName FROM users WHERE id IN (${ids.map(() => '?').join(',')})`, ids, (err, rows) => {
+          if (!err && rows) participantsInfo = rows;
+          resolve();
+        });
+      });
+    }
+  }
+  res.json({ ...chat, participantsInfo });
 });
 
 export default router;

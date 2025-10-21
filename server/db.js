@@ -16,6 +16,7 @@ export default async function getDb() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         passwordHash TEXT,
+        fullName TEXT,
         isAdmin INTEGER DEFAULT 0
       )`);
       dbInstance.run(`CREATE TABLE IF NOT EXISTS chats (
