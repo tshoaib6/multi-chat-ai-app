@@ -164,60 +164,64 @@ useEffect(()=>{
 	} catch {}
 }, [theme]);
 
-// Step-by-step AI debate state and runner (inside component)
-const [debateState, setDebateState] = useState<{
-	systemPrompt: string;
-	nextSpeaker: string;
-	turn: number;
-	running: boolean;
-} | null>(null);
-const debateStateRef = useRef<{
-	systemPrompt: string;
-	nextSpeaker: string;
-	turn: number;
-	running: boolean;
-} | null>(null);
+// Debate state types
+type DebateState = { systemPrompt: string; nextSpeaker: string; turn: number; running: boolean };
+// Per-topic debate snapshot map
+const [debateStates, setDebateStates] = useState<Record<string, DebateState>>({});
+// Active debate state for current topic
+const [debateState, setDebateState] = useState<DebateState | null>(null);
+const debateStateRef = useRef<DebateState | null>(null);
 useEffect(() => { debateStateRef.current = debateState; }, [debateState]);
 
-const PER_TURN_MS = 15000; // ~15s per exchange -> ~5–7 minutes for 20+ exchanges
+function setDebateForCurrentTopic(ds: DebateState | null) {
+  setDebateState(ds);
+  if (ds && currentTopicId) {
+    setDebateStates(prev => ({ ...prev, [currentTopicId]: ds }));
+  }
+}
+
+const PER_TURN_MS = 15000;
+
+async function beginDebate() {
+  if (!token || !currentTopicId) return;
+  const existing = debateStates[currentTopicId];
+  if (existing && existing.running) {
+    // already running snapshot exists, just resume
+    setPlaying(true);
+    await runNextTurn(800, existing);
+    return;
+  }
+  try {
+    setLoadingChats(true);
+    const init = await startDebateAPI(token, currentTopicId);
+    if (init?.messages?.length) {
+      init.messages.forEach((msg: any) => {
+        useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId, speakerId: msg.speakerId, text: msg.text, timestamp: Date.now(), participants: msg.participants || [], isPublic: false });
+      });
+    }
+    const newState: DebateState = { systemPrompt: init.systemPrompt, nextSpeaker: init.nextSpeaker, turn: init.turn, running: true };
+    setDebateForCurrentTopic(newState);
+    setPlaying(true);
+    await runNextTurn(800 + Math.floor(Math.random() * 600), newState);
+  } catch (err) {
+    console.error('[Frontend] beginDebate error:', err);
+    useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId!, speakerId: 'system', text: 'Error starting debate.', timestamp: Date.now(), participants: [], isPublic: false });
+  } finally {
+    setLoadingChats(false);
+  }
+}
 
 function turnDelay() {
   const jitter = Math.floor(PER_TURN_MS * 0.2 * (Math.random() - 0.5));
   return Math.max(4000, PER_TURN_MS + jitter);
 }
 
-async function beginDebate() {
-  if (!token || !currentTopicId) return;
-  if (debateState?.running) return;
-  try {
-    setLoadingChats(true);
-    console.log('[Frontend] Debate START for topic:', currentTopicId);
-    const init = await startDebateAPI(token, currentTopicId);
-    if (init?.messages?.length) {
-      init.messages.forEach((msg: any) => {
-        useApp.getState().addEntry({
-          id: crypto.randomUUID(), topicId: currentTopicId, speakerId: msg.speakerId, text: msg.text,
-          timestamp: Date.now(), participants: msg.participants || [], isPublic: false,
-        });
-      });
-    }
-		const newState = { systemPrompt: init.systemPrompt, nextSpeaker: init.nextSpeaker, turn: init.turn, running: true };
-    setDebateState(newState);
-    setPlaying(true);
-		await runNextTurn(800 + Math.floor(Math.random()*600), newState);
-  } catch (err) {
-    console.error('[Frontend] beginDebate error:', err);
-    useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId!, speakerId: 'system', text: 'Error starting debate.', timestamp: Date.now(), participants: [], isPublic: false });
-  } finally { setLoadingChats(false); }
-}
-
-async function runNextTurn(delayMs?: number, dsOverride?: { systemPrompt: string; nextSpeaker: string; turn: number; running: boolean; }) {
+async function runNextTurn(delayMs?: number, dsOverride?: DebateState) {
   const ds = dsOverride ?? debateStateRef.current; if (!ds || !token || !currentTopicId) return;
   if (!useApp.getState().playing) return;
   useApp.getState().setTyping(true, ds.nextSpeaker as any);
   if (delayMs) await new Promise(r => setTimeout(r, delayMs));
   try {
-    console.log('[Frontend] NEXT turn', { turn: ds.turn + 1, speaker: ds.nextSpeaker });
     const current = useApp.getState().transcript.filter(e => e.topicId === currentTopicId).map(e => ({ speakerId: e.speakerId, text: e.text }));
     const res = await nextDebateAPI(token, { transcript: current, systemPrompt: ds.systemPrompt, nextSpeaker: ds.nextSpeaker, turn: ds.turn });
     useApp.getState().setTyping(false);
@@ -231,15 +235,14 @@ async function runNextTurn(delayMs?: number, dsOverride?: { systemPrompt: string
       if (res?.conclusion) {
         useApp.getState().addEntry({ id: crypto.randomUUID(), topicId: currentTopicId, speakerId: 'system', text: res.conclusion.text, timestamp: Date.now(), participants: [], isPublic: false });
       }
-      setDebateState(prev => prev ? { ...prev, running: false } : prev);
+      setDebateForCurrentTopic({ ...ds, running: false });
       setPlaying(false);
-      console.log('[Frontend] Debate FINISHED');
       return;
     }
-    setDebateState(prev => prev ? { ...prev, nextSpeaker: res.nextSpeaker, turn: res.turn } : prev);
-		if (useApp.getState().playing) {
-			const nextState = { systemPrompt: ds.systemPrompt, nextSpeaker: res.nextSpeaker, turn: res.turn, running: true };
-			setTimeout(() => { runNextTurn(turnDelay(), nextState); }, 0);
+    const nextState: DebateState = { systemPrompt: ds.systemPrompt, nextSpeaker: res.nextSpeaker, turn: res.turn, running: true };
+    setDebateForCurrentTopic(nextState);
+    if (useApp.getState().playing) {
+      setTimeout(() => { runNextTurn(turnDelay(), nextState); }, 0);
     }
   } catch (err) {
     console.error('[Frontend] runNextTurn error:', err);
@@ -248,11 +251,38 @@ async function runNextTurn(delayMs?: number, dsOverride?: { systemPrompt: string
   }
 }
 
+function handleDebateToggle() {
+  if (!currentTopicId) return;
+  const ds = debateStates[currentTopicId];
+  if (!playing) {
+    if (ds && ds.running) {
+      setPlaying(true);
+      void runNextTurn(800, ds);
+    } else {
+      void beginDebate();
+    }
+  } else {
+    setPlaying(false);
+  }
+}
+
+// When topic changes, load/save per-topic snapshot and resume if playing is on
+useEffect(() => {
+  const ds = currentTopicId ? debateStates[currentTopicId] : null;
+  setDebateState(ds ?? null);
+  if (playing && ds?.running) {
+    void runNextTurn(800, ds);
+  } else {
+    // stop typing indicator when switching topics if not resuming immediately
+    useApp.getState().setTyping(false);
+  }
+}, [currentTopicId]);
+
 // Resume scheduling if user unpauses
 useEffect(() => {
-	if (playing && debateStateRef.current?.running) {
-		runNextTurn(1000);
-	}
+  if (playing && debateStateRef.current?.running) {
+    void runNextTurn(1000);
+  }
 }, [playing]);
 
 
@@ -335,7 +365,7 @@ return (
 		{/* Debate section */}
 		<div className="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
 			<h2 className="font-semibold mb-2">Debate</h2>
-			<button onClick={beginDebate} className="mb-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold">Start Debate</button>
+			<button onClick={handleDebateToggle} className="mb-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold">{playing ? 'Pause Debate' : debateState?.running ? 'Resume Debate' : 'Start Debate'}</button>
 			{/* Add more UI elements for submitting entries and viewing debates */}
 		</div>
 		{/* User profile and logout */}
