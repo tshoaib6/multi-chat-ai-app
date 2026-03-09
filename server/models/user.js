@@ -12,11 +12,11 @@ const User = {
     const passwordHash = await bcrypt.hash(password, 10);
     return new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO users (username, passwordHash, fullName, isAdmin) VALUES (?, ?, ?, ?)',
+        'INSERT INTO users (username, passwordHash, fullName, isAdmin, isPremium) VALUES (?, ?, ?, ?, 0)',
         [username, passwordHash, fullName, isAdmin],
         function (err) {
           if (err) return reject(err);
-          resolve({ id: this.lastID, username, fullName, isAdmin });
+          resolve({ id: this.lastID, username, fullName, isAdmin, isPremium: 0 });
         }
       );
     });
@@ -25,6 +25,15 @@ const User = {
     const db = await getDb();
     return new Promise((resolve, reject) => {
       db.get('SELECT * FROM users WHERE username = ?', [username], (err, row) => {
+        if (err) return reject(err);
+        resolve(row);
+      });
+    });
+  },
+  async findById(id) {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+      db.get('SELECT * FROM users WHERE id = ?', [id], (err, row) => {
         if (err) return reject(err);
         resolve(row);
       });
