@@ -1,3 +1,11 @@
+export async function fetchSubscriptionStatus(token: string) {
+  const res = await fetch(`${API}/auth/subscription`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) throw new Error('Failed to fetch subscription status');
+  return await res.json(); // { isPremium: boolean }
+}
+
 export async function fetchChatGPT(token: string, prompt: string, system?: string) {
   const res = await fetch('http://localhost:5055/api/chatgpt', {
     method: 'POST',

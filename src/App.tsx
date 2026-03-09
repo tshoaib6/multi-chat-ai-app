@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo from './assets/Multi.png';
-import { fetchChats, saveChat, fetchChat, fetchPublicChats, startDebateAPI, nextDebateAPI } from './api';
+import { fetchChats, saveChat, fetchChat, fetchPublicChats, startDebateAPI, nextDebateAPI, fetchSubscriptionStatus } from './api';
 import TopicPicker from './components/TopicPicker';
 import Tooltip from './components/Tooltip';
 
@@ -53,6 +53,7 @@ const navigate = useNavigate();
 // Auth state
 const [token, setToken] = useState<string|null>(localStorage.getItem('token'));
 const [user, setUser] = useState<any>(token ? JSON.parse(localStorage.getItem('user') || 'null') : null);
+const [isPremium, setIsPremium] = useState<boolean>(user?.isPremium === 1);
 const [privateChats, setPrivateChats] = useState<any[]>([]);
 const [publicChats, setPublicChats] = useState<any[]>([]);
 const [selectedChatId, setSelectedChatId] = useState<number|null>(null);
@@ -86,6 +87,14 @@ useEffect(() => {
 			setPublicChats(pub || []);
 		})
 		.finally(() => setLoadingChats(false));
+}, [token]);
+
+// On login, fetch subscription status
+useEffect(() => {
+	if (!token) return;
+	fetchSubscriptionStatus(token)
+		.then(data => setIsPremium(!!data?.isPremium))
+		.catch(err => console.error('[Frontend] Failed to fetch subscription status:', err));
 }, [token]);
 
 const fetchAllChats = useCallback(async () => {
@@ -422,12 +431,22 @@ return (
 			<div>
 				<div className="font-semibold">{user?.username}</div>
 				<div className="text-xs text-gray-500">Logged in</div>
+				{isPremium ? (
+					<span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+						⭐ Premium
+					</span>
+				) : (
+					<span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium">
+						Free plan
+					</span>
+				)}
 			</div>
 			<button
 				className="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200"
 				onClick={() => {
 					setToken(null);
 					setUser(null);
+					setIsPremium(false);
 					localStorage.removeItem('token');
 					localStorage.removeItem('user');
 					setPrivateChats([]);

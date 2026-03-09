@@ -17,8 +17,15 @@ export default async function getDb() {
         username TEXT UNIQUE,
         passwordHash TEXT,
         fullName TEXT,
-        isAdmin INTEGER DEFAULT 0
+        isAdmin INTEGER DEFAULT 0,
+        isPremium INTEGER DEFAULT 0
       )`);
+      // Migration: add isPremium column if it doesn't exist (for existing databases)
+      dbInstance.run(`ALTER TABLE users ADD COLUMN isPremium INTEGER DEFAULT 0`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('[DB] Migration error (isPremium):', err.message);
+        }
+      });
       dbInstance.run(`CREATE TABLE IF NOT EXISTS chats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         userId INTEGER,
